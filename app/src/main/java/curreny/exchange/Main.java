@@ -10,17 +10,17 @@ public class Main {
     public static void main(String[] args) {
         ExchangeRates rates = new ExchangeRates();
 
-        // call the API every 10 seconds to get the latest exchange rates
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                try{
-                    rates.updateRates();
-                } catch (Exception e){
-                    e.printStackTrace();
-                }
-            }
-        }, 0, 10000);
+        // // call the API every 10 seconds to get the latest exchange rates
+        // Timer timer = new Timer();
+        // timer.scheduleAtFixedRate(new TimerTask() {
+        //     @Override
+        //     public void run() {
+        //         try{
+        //             rates.updateRates();
+        //         } catch (Exception e){
+        //             e.printStackTrace();
+        //         }
+        //     }
+        // }, 0, 10000);
     }
 }
