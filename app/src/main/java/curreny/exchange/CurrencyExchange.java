@@ -3,5 +3,7 @@ package curreny.exchange;
 import java.math.BigDecimal;
 
 public interface CurrencyExchange {
-    public BigDecimal getRate(String currencyPair);
+    public static BigDecimal getRate(String currencyPair){
+        return null;
+    }
 }

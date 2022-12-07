@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 
 public class Cache implements CurrencyExchange {
+    
     private HashMap<String,BigDecimal> cache;
 
     /**
@@ -12,6 +13,7 @@ public class Cache implements CurrencyExchange {
      * @return the exchange rate as BigDecimal.
      */
     public BigDecimal getRate(String currencyPair){
+        // TODO: implement this
         return new BigDecimal(0.0);
     }
 

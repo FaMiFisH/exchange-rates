@@ -4,5 +4,4 @@
 # Ignore Gradle build output directory
 build
 
-# Ignore .class files.
-app\src\main\java\currency\exchange\*.class
+app/bin/*
