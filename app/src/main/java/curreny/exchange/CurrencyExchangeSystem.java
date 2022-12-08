@@ -6,9 +6,12 @@ import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.sql.Connection;
+import java.util.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Map;
 import java.util.Set;
 
@@ -26,24 +29,69 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
     private String currencyExchangeAPI;
 
     /**
-     * Constructor.
+     * Constructor. Initailise the database.
+     * @throws SQLException
+     * @throws IOException
      */
-    public CurrencyExchangeSystem(){
+    public CurrencyExchangeSystem() throws SQLException {
         this.dbConn = getPortConnection();
         this.currencyExchangeAPI = "https://api.exchangerate.host/latest";
+        
+        try {
+            updateRates();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
     
     /**
      * getRate - method to return the exchange rate of the given currency pair.
-     * @param {currencyPair} the currency pair to return the exchange rate of.
+     * NOTE: since currency column is unique in the database, stmt1 returns just 1 row.
+     * If the exchange rate is invalid, we update the database with latest values.
+     * @param {currency} the currency to return the exchange rate of from base currency.
      * @return the exchange rate.
+     * @throws SQLException
      */
-    public BigDecimal getRate(String cuurencyPair){
+    public BigDecimal getRate(String currency) throws SQLException{
 
-        // TODO: check for time here
+        String stmt1 = "SELECT rate, updated FROM exchange_rates WHERE currency=?";
 
-        // TODO: implement SQL query here
-        return new BigDecimal(0);
+        try {
+            PreparedStatement preparedStmt = this.dbConn.prepareStatement(stmt1);
+            preparedStmt.setString(1, currency);
+            ResultSet result = preparedStmt.executeQuery();
+            
+            // check if exchange rate is valid
+            Timestamp lastUpdated = result.getTimestamp("updated");
+            if(!isExchangeRateValid(lastUpdated)){
+                // if exchange rate is invalid, then update database with latest values
+                try {
+                    updateRates();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return getRate(currency);
+            }
+
+            return result.getBigDecimal("rate");
+
+        } catch (SQLException e) {
+            throw e;
+        }
+    }
+
+
+    /**
+     * isExchangeRateValid - method to determine if the given timestamp is valid.
+     * The timestamp is valid if it is within the past hour.
+     * @param {time} 
+     * @return boolean result.
+     */
+    private boolean isExchangeRateValid(Timestamp time) {
+        Date date = new Date();  
+        Timestamp currentTime = new Timestamp(date.getTime());  
+        
+        return time.compareTo(currentTime) == 0 ? true : false;
     }
 
     /**
@@ -51,12 +99,13 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
      * If given currency is already in the database, updates its value.
      * @param {currency}
      * @param {rate}
+     * @throws SQLException
      */
-    public void storeRate(String currency, BigDecimal rate){
-        String stmt = "INSERT INTO exchange_rates ('currency', 'rate', 'updated') VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE 'rate'=?, 'updated'=NOW()";
+    public void storeRate(String currency, BigDecimal rate) throws SQLException{
+        String stmt = "INSERT INTO exchange_rates (currency, rate, updated) VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE rate=?, updated=NOW()";
 
         try {
-            PreparedStatement preparedStmt = dbConn.prepareStatement(stmt);
+            PreparedStatement preparedStmt = this.dbConn.prepareStatement(stmt);
 
             preparedStmt.setString(1, currency);
             preparedStmt.setBigDecimal(2, rate);
@@ -64,15 +113,17 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
             
             preparedStmt.executeUpdate();
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw e;
         }
     }
 
+
     /**
      * updateRates - method to update exchange rates in the database.
-     * NOTE: each value represents the exchange rate from the base currency
+     * NOTE: each value represents the exchange rate from the base currency.
+     * @throws SQLException
      */
-    public void updateRates() throws IOException{
+    private void updateRates() throws IOException, SQLException{
 
         // make a get request to the API
         HttpURLConnection conn = getRequest();
@@ -81,9 +132,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
         int statusCode = conn.getResponseCode();
 
         // ensure the status code is: 200 OK
-        if (statusCode != 200){
-            throw new RuntimeException("HTTP response code: " + statusCode);
-        }
+        if (statusCode != 200) throw new RuntimeException("HTTP response code: " + statusCode);
         
         // get the exchange rates from the response body
         JsonObject rates =  parseResponse(conn);
@@ -100,12 +149,13 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
         System.out.println("Successfully updated exchange rates!");
     }
 
+
     /**
      * getRequest - method to create a HTTP get request.
      * @return the connection instance of the request.
      */
     private HttpURLConnection getRequest() throws IOException{
-        URL url = new URL(currencyExchangeAPI);     
+        URL url = new URL(this.currencyExchangeAPI);     
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("accept", "application/json");
@@ -113,6 +163,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
 
         return conn;
     }
+
 
     /**
      * parseResponse - method to parse the JSON reponse and store in the hashmap.
@@ -129,7 +180,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
         JsonObject rates = jsonobj.get("rates").getAsJsonObject();
         
         // update base currency if needed
-        if (baseCurrency != base) baseCurrency = base;
+        if (this.baseCurrency != base) this.baseCurrency = base;
 
         return rates;
     }

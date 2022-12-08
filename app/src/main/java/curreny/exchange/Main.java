@@ -3,29 +3,17 @@
  */
 package curreny.exchange;
 
-import java.sql.Connection;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.sql.SQLException;
 
 public class Main {
     public static void main(String[] args) {
 
-        // CurrencyExchangeSystem sys = new CurrencyExchangeSystem();
-        Connection conn = CurrencyExchangeSystem.getPortConnection();
-
-        // ExchangeRates rates = new ExchangeRates();
-
-        // // call the API every 10 seconds to get the latest exchange rates
-        // Timer timer = new Timer();
-        // timer.scheduleAtFixedRate(new TimerTask() {
-        //     @Override
-        //     public void run() {
-        //         try{
-        //             rates.updateRates();
-        //         } catch (Exception e){
-        //             e.printStackTrace();
-        //         }
-        //     }
-        // }, 0, 10000);
+        try {
+            CurrencyExchangeSystem ces = new CurrencyExchangeSystem();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+       
     }
 }
