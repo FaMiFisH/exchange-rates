@@ -3,7 +3,7 @@ package curreny.exchange;
 import java.math.BigDecimal;
 import java.util.HashMap;
 
-public class Cache implements CurrencyExchange {
+public class CacheSystem implements CurrencyExchange {
     
     private HashMap<String,BigDecimal> cache;
 
