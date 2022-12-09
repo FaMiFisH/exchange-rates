@@ -3,9 +3,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.sql.Connection;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.sql.DriverManager;
@@ -23,11 +25,12 @@ import com.google.gson.JsonParser;
 public class CurrencyExchangeSystem implements CurrencyExchange {
 
     // TODO: add cache system here
-    // TODO: add a converter function
+    // TODO: provide API to exchange currency
 
     private Connection dbConn;
     private String baseCurrency;
     private String currencyExchangeAPI;
+    private ArrayList<String> currencies;
 
     /**
      * Constructor. Initailise the database.
@@ -37,6 +40,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
     public CurrencyExchangeSystem() throws SQLException {
         this.dbConn = getPortConnection();
         this.currencyExchangeAPI = "https://api.exchangerate.host/latest";
+        this.currencies = new ArrayList<String>();
         
         try {
             updateRates();
@@ -44,7 +48,42 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
             e.printStackTrace();
         }
     }
+
+
+    /**
+     * exchangeCurrency - method to exchange source currency to target currency.
+     * The base class is used as an intermediatory in the conversion.
+     * @param {sourceCurrency}
+     * @param {targetCurrency}
+     * @param {amount}
+     * @return the amount in the target currency.
+     * @throws IOException
+     * @throws SQLException
+     */
+    public BigDecimal currencyExchange(String sourceCurrency, String targetCurrency, Double amount) throws SQLException, IOException{
+
+        // validate provided currencies
+        if (!currencies.contains(sourceCurrency)) throw new IllegalArgumentException(sourceCurrency + " is not supported!");
+        if (!currencies.contains(targetCurrency)) throw new IllegalArgumentException(targetCurrency + " is not supported!");
+
+        // convert to BigDecimal inorder to perform BigDecimal operations 
+        BigDecimal value = BigDecimal.valueOf(amount);
+
+        // convert from source currency to base currency
+        BigDecimal base_source_rate = getRate(sourceCurrency);
+        BigDecimal baseValue = value.divide(base_source_rate, 10, RoundingMode.HALF_UP);
+
+        // convert base currency to target currency
+        BigDecimal base_target_rate = getRate(targetCurrency);
+        BigDecimal targetValue = baseValue.multiply(base_target_rate);
+
+        BigDecimal exchangeRate = base_target_rate.divide(base_source_rate, 5, RoundingMode.HALF_UP);
+        System.out.println("Exchange rate from " + sourceCurrency + " to " + targetCurrency + ": " + exchangeRate);
+
+        return targetValue.setScale(2, BigDecimal.ROUND_HALF_EVEN);
+    }
     
+
     /**
      * getRate - method to return the exchange rate of the given currency pair.
      * NOTE: since currency column is unique in the database, stmt1 returns just 1 row.
@@ -54,7 +93,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
      * @throws SQLException
      * @throws IOException
      */
-    public BigDecimal getRate(String currency) throws SQLException, IOException{
+    private BigDecimal getRate(String currency) throws SQLException, IOException{
 
         String stmt1 = "SELECT rate, updated FROM exchange_rates WHERE currency=?";
 
@@ -119,6 +158,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
         return time.compareTo(currentTime) >= 0 ? true : false;
     }
 
+
     /**
      * storeRate - method to store the rate of the given currency in the database.
      * If given currency is already in the database, updates its value.
@@ -149,7 +189,6 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
      * @throws SQLException
      */
     private void updateRates() throws IOException, SQLException{
-        System.out.println("updating rates");
 
         // make a get request to the API
         HttpURLConnection conn = getRequest();
@@ -163,16 +202,20 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
         // get the exchange rates from the response body
         JsonObject rates =  parseResponse(conn);
 
+        // flag to determine whether we need to initialise currencies
+        boolean flag = currencies.size() == 0;
+
         // iterate through each exchange rate 
         Set<Map.Entry<String, JsonElement>> setRates = rates.entrySet();
         for (Map.Entry<String, JsonElement> entry : setRates) {
             String currency = entry.getKey();
             BigDecimal rate = entry.getValue().getAsBigDecimal(); 
+            // initialise currencies
+            if (flag) this.currencies.add(currency);
             
+            // store exchange rate to the database
             storeRate(currency, rate);
         }
-
-        System.out.println("Successfully updated exchange rates!");
     }
 
 

@@ -10,7 +10,7 @@ public class Main {
 
         try {
             CurrencyExchangeSystem ces = new CurrencyExchangeSystem();
-            BigDecimal value = ces.getRate("USD");
+            BigDecimal value = ces.currencyExchange("GBP", "PKR", 10.45);
             System.out.println(value);
         } catch (Exception e) {
             e.printStackTrace();
