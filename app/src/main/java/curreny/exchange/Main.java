@@ -3,17 +3,17 @@
  */
 package curreny.exchange;
 
-import java.sql.SQLException;
+import java.math.BigDecimal;
 
 public class Main {
     public static void main(String[] args) {
 
         try {
             CurrencyExchangeSystem ces = new CurrencyExchangeSystem();
-        } catch (SQLException e) {
+            BigDecimal value = ces.getRate("USD");
+            System.out.println(value);
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        
-       
     }
 }

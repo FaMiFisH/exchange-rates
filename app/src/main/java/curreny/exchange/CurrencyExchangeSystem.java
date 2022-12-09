@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.sql.Connection;
+import java.util.Calendar;
 import java.util.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -51,30 +52,48 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
      * @param {currency} the currency to return the exchange rate of from base currency.
      * @return the exchange rate.
      * @throws SQLException
+     * @throws IOException
      */
-    public BigDecimal getRate(String currency) throws SQLException{
+    public BigDecimal getRate(String currency) throws SQLException, IOException{
 
         String stmt1 = "SELECT rate, updated FROM exchange_rates WHERE currency=?";
 
         try {
             PreparedStatement preparedStmt = this.dbConn.prepareStatement(stmt1);
             preparedStmt.setString(1, currency);
-            ResultSet result = preparedStmt.executeQuery();
+            ResultSet resultSet = preparedStmt.executeQuery();
+
+            // ensure result set 
+            if (resultSet == null) throw new IllegalStateException("result set is null");
             
             // check if exchange rate is valid
-            Timestamp lastUpdated = result.getTimestamp("updated");
-            if(!isExchangeRateValid(lastUpdated)){
-                // if exchange rate is invalid, then update database with latest values
-                try {
-                    updateRates();
-                } catch (IOException e) {
-                    e.printStackTrace();
+            while (resultSet.next()){
+                Timestamp lastUpdated = resultSet.getTimestamp("updated");
+
+                // if exchange rate is invalid, update exchange rates in the database
+                if(!isExchangeRateValid(lastUpdated)){
+                    System.out.println("invalid");
+                    try {
+                        updateRates();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    return resultSet.getBigDecimal("rate");
                 }
-                return getRate(currency);
             }
 
-            return result.getBigDecimal("rate");
+            // Database was updated so re-execute the query
+            BigDecimal rate = null;
+            resultSet = preparedStmt.executeQuery();
+            while (resultSet.next()) {
+                rate =  resultSet.getBigDecimal("rate");
+            }
 
+            if (rate == null) throw new IllegalStateException("Rate has null value");
+
+            return rate;
+            
         } catch (SQLException e) {
             throw e;
         }
@@ -90,8 +109,14 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
     private boolean isExchangeRateValid(Timestamp time) {
         Date date = new Date();  
         Timestamp currentTime = new Timestamp(date.getTime());  
+
+        // subtract an hour
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(currentTime.getTime());
+        cal.add(Calendar.HOUR, -1);
+        currentTime = new Timestamp(cal.getTime().getTime());
         
-        return time.compareTo(currentTime) == 0 ? true : false;
+        return time.compareTo(currentTime) >= 0 ? true : false;
     }
 
     /**
@@ -101,8 +126,8 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
      * @param {rate}
      * @throws SQLException
      */
-    public void storeRate(String currency, BigDecimal rate) throws SQLException{
-        String stmt = "INSERT INTO exchange_rates (currency, rate, updated) VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE rate=?, updated=NOW()";
+    private void storeRate(String currency, BigDecimal rate) throws SQLException{
+        String stmt = "INSERT INTO exchange_rates (currency, rate, updated) VALUES (?,?,NOW()) ON CONFLICT (currency) DO UPDATE SET rate=?, updated=NOW()";
 
         try {
             PreparedStatement preparedStmt = this.dbConn.prepareStatement(stmt);
@@ -124,6 +149,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
      * @throws SQLException
      */
     private void updateRates() throws IOException, SQLException{
+        System.out.println("updating rates");
 
         // make a get request to the API
         HttpURLConnection conn = getRequest();
