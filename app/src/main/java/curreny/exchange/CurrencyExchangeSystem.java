@@ -83,6 +83,7 @@ public class CurrencyExchangeSystem extends CurrencyExchange {
      * getRate - method to return the exchange rate of the given currency pair.
      * NOTE: since currency column is unique in the database, stmt1 returns just 1 row.
      * To increase performance, if database is under heavy load, load the exchange rate from cahce.
+     * The cache is cleared in order to reuse it with the latest exhange rates.
      * If the exchange rate is invalid, we update the database with latest values.
      * @param {currency} the currency to return the exchange rate of from base currency.
      * @return the exchange rate.
