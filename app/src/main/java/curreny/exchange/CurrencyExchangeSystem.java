@@ -94,6 +94,9 @@ public class CurrencyExchangeSystem extends CurrencyExchange {
         // if database is under heavy load, load exchange rate from cache
         if ( isDatabaseUnderHeavyLoad()) return this.cache.getRate(currency); 
 
+        // clear cache if it is no longer required 
+        if (!this.cache.isEmpty()) this.cache.clear();
+
         String stmt1 = "SELECT rate, updated FROM exchange_rates WHERE currency=?";
         try {
             PreparedStatement preparedStmt = super.getConn().prepareStatement(stmt1);

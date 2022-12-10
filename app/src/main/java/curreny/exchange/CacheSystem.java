@@ -10,6 +10,14 @@ public class CacheSystem extends CurrencyExchange {
     
     private HashMap<String,BigDecimal> cache;
 
+    public boolean isEmpty(){
+        return cache.size() == 0;
+    }
+
+    public void clear() {
+        cache.clear();
+    }
+
     /**
      * getRate - method to get the exchange rate from the database.
      * @param {currency} the currency pair to get the exchange rate of.
