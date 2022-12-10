@@ -6,11 +6,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,12 +20,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-public class CurrencyExchangeSystem implements CurrencyExchange {
+public class CurrencyExchangeSystem extends CurrencyExchange {
 
-    // TODO: add cache system here
-    // TODO: provide API to exchange currency
-
-    private Connection dbConn;
+    private CacheSystem cache;
     private String baseCurrency;
     private String currencyExchangeAPI;
     private ArrayList<String> currencies;
@@ -38,7 +33,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
      * @throws IOException
      */
     public CurrencyExchangeSystem() throws SQLException {
-        this.dbConn = getPortConnection();
+        this.cache = new CacheSystem();
         this.currencyExchangeAPI = "https://api.exchangerate.host/latest";
         this.currencies = new ArrayList<String>();
         
@@ -87,22 +82,24 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
     /**
      * getRate - method to return the exchange rate of the given currency pair.
      * NOTE: since currency column is unique in the database, stmt1 returns just 1 row.
+     * To increase performance, if database is under heavy load, load the exchange rate from cahce.
      * If the exchange rate is invalid, we update the database with latest values.
      * @param {currency} the currency to return the exchange rate of from base currency.
      * @return the exchange rate.
      * @throws SQLException
      * @throws IOException
      */
-    private BigDecimal getRate(String currency) throws SQLException, IOException{
+    public BigDecimal getRate(String currency) throws SQLException {
+
+        // if database is under heavy load, load exchange rate from cache
+        if ( isDatabaseUnderHeavyLoad()) return this.cache.getRate(currency); 
 
         String stmt1 = "SELECT rate, updated FROM exchange_rates WHERE currency=?";
-
         try {
-            PreparedStatement preparedStmt = this.dbConn.prepareStatement(stmt1);
+            PreparedStatement preparedStmt = super.getConn().prepareStatement(stmt1);
             preparedStmt.setString(1, currency);
             ResultSet resultSet = preparedStmt.executeQuery();
 
-            // ensure result set 
             if (resultSet == null) throw new IllegalStateException("result set is null");
             
             // check if exchange rate is valid
@@ -111,7 +108,6 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
 
                 // if exchange rate is invalid, update exchange rates in the database
                 if(!isExchangeRateValid(lastUpdated)){
-                    System.out.println("invalid");
                     try {
                         updateRates();
                     } catch (IOException e) {
@@ -133,6 +129,30 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
 
             return rate;
             
+        } catch (SQLException e) {
+            throw e;
+        }
+    }
+
+
+    /**
+     * isDatabaseUnderHeavyLoad - method to determine if database is under heavy load.
+     * @throws SQLException
+     * @return determined by number of current connections being > 10.
+     */
+    private boolean isDatabaseUnderHeavyLoad() throws SQLException {
+        String stmt = "SELECT COUNT(*) AS total FROM pg_stat_activity WHERE datname = 'exchange_rates'";
+        try {
+            PreparedStatement preparedStmt = super.getConn().prepareStatement(stmt);
+            ResultSet resultSet = preparedStmt.executeQuery();
+
+            int total = 0;
+            while(resultSet.next()) {
+                total = resultSet.getInt("total");
+            }
+
+            return total >= 10; 
+
         } catch (SQLException e) {
             throw e;
         }
@@ -170,7 +190,7 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
         String stmt = "INSERT INTO exchange_rates (currency, rate, updated) VALUES (?,?,NOW()) ON CONFLICT (currency) DO UPDATE SET rate=?, updated=NOW()";
 
         try {
-            PreparedStatement preparedStmt = this.dbConn.prepareStatement(stmt);
+            PreparedStatement preparedStmt = super.getConn().prepareStatement(stmt);
 
             preparedStmt.setString(1, currency);
             preparedStmt.setBigDecimal(2, rate);
@@ -252,33 +272,5 @@ public class CurrencyExchangeSystem implements CurrencyExchange {
         if (this.baseCurrency != base) this.baseCurrency = base;
 
         return rates;
-    }
-
-
-    /**
-     * getPortConnection - method to connect to the database.
-     * @return connection to the database.
-     */
-    private Connection getPortConnection(){
-        String user = "postgres";
-        String passwrd = "password";
-        Connection conn;
-
-        // check if driver is available
-        try {
-            Class.forName("org.postgresql.Driver");
-        } catch (ClassNotFoundException x) {
-            System.out.println("Driver could not be loaded");
-        }
-
-        try {
-            conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/exchange_rates?user="+ user +"&password=" + passwrd);
-            return conn;
-        } catch(SQLException e) {
-            System.err.format("SQL State: %s\n%s\n", e.getSQLState(), e.getMessage());
-            e.printStackTrace();
-            System.out.println("Error retrieving connection");
-            return null;
-        }
     }
 }
