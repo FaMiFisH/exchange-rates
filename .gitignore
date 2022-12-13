@@ -5,3 +5,6 @@
 build
 
 app/bin/*
+
+# AWS auth
+app/src/main/java/curreny/exchange/AWSAuth.java

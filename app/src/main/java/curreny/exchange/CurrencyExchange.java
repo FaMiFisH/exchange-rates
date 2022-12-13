@@ -37,8 +37,6 @@ public abstract class CurrencyExchange implements AutoCloseable {
      * @return connection to the database.
      */
     private Connection getPortConnection(){
-        String user = "postgres";
-        String passwrd = "password";
         Connection conn;
 
         // check if driver is available
@@ -49,7 +47,7 @@ public abstract class CurrencyExchange implements AutoCloseable {
         }
 
         try {
-            conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/exchange_rates?user="+ user +"&password=" + passwrd);
+            conn = DriverManager.getConnection("jdbc:postgresql://" + AWSAuth.endpoint + ":" + AWSAuth.port + "/" + AWSAuth.dbName + "?user="+ AWSAuth.username +"&password=" + AWSAuth.password);
             return conn;
         } catch(SQLException e) {
             System.err.format("SQL State: %s\n%s\n", e.getSQLState(), e.getMessage());
