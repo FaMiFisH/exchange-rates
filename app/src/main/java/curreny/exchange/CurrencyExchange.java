@@ -17,6 +17,7 @@ public abstract class CurrencyExchange implements AutoCloseable {
     public Connection getConn(){
         return this.dbConn;
     }
+    
 
     @Override
     public void close() throws Exception {
@@ -47,7 +48,7 @@ public abstract class CurrencyExchange implements AutoCloseable {
         }
 
         try {
-            conn = DriverManager.getConnection("jdbc:postgresql://" + AWSAuth.endpoint + ":" + AWSAuth.port + "/" + AWSAuth.dbName + "?user="+ AWSAuth.username +"&password=" + AWSAuth.password);
+            conn = DriverManager.getConnection("jdbc:postgresql://" + AWSAuth.endpoint + ":" + AWSAuth.port + "/" + "?user="+ AWSAuth.username +"&password=" + AWSAuth.password);
             return conn;
         } catch(SQLException e) {
             System.err.format("SQL State: %s\n%s\n", e.getSQLState(), e.getMessage());

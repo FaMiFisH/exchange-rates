@@ -10,6 +10,10 @@ public class CacheSystem extends CurrencyExchange {
     
     private HashMap<String,BigDecimal> cache;
 
+    public CacheSystem() {
+        this.cache = new HashMap<String, BigDecimal>();
+    }
+
     public boolean isEmpty(){
         return cache.size() == 0;
     }
