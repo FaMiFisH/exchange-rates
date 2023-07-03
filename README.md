@@ -11,3 +11,5 @@ The AWSAuth file stores the credentials to connect to the database hosted on AWS
 
 ### Improvements
 - Also store the timestamps of exchange rates in the cache to update when invalid. 
+- refactor to ahve function java
+- make the database update process a service that is only excuted once, when called by multiple users
